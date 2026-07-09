@@ -9,14 +9,23 @@ import traceback
 from collections import defaultdict
 
 
+def _obter_event_loop():
+    try:
+        return asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        return loop
+
+
 class ZyboSerialDriver:
     """ Driver para o hardware de https://github.com/thotypous/zybo-z7-20-uart """
 
-    def __init__(self, device='/dev/uio/user_io@43c00000'):
+    def __init__(self, device='/dev/uio/user_io'):
         self.fd = os.open(device, os.O_RDWR)
         fcntl.fcntl(self.fd, fcntl.F_SETFL, os.O_NONBLOCK)
         self.mm = mmap.mmap(self.fd, 0x1000)
-        asyncio.get_event_loop().add_reader(self.fd, self.__irq_handler)
+        _obter_event_loop().add_reader(self.fd, self.__irq_handler)
         self.__irq_unmask()
         self.callbacks = defaultdict(lambda: lambda _: None)
 
@@ -97,7 +106,7 @@ class PTY:
         os.close(slave_fd)
         self.pty = pty
         self.pty_name = pty_name
-        asyncio.get_event_loop().add_reader(pty, self.__raw_recv)
+        _obter_event_loop().add_reader(pty, self.__raw_recv)
 
     def __raw_recv(self):
         try:
